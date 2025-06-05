@@ -49,7 +49,6 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { toast } from "sonner"
 
 interface Community {
   id: string
