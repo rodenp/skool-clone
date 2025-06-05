@@ -3,21 +3,35 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { LessonType } from "@prisma/client" // Import generated LessonType
+
+const LessonTypeEnum = z.nativeEnum(LessonType);
+
+const attachmentSchema = z.object({
+  id: z.string().optional(), // ID might be present if updating, but not for new attachments
+  name: z.string().min(1),
+  url: z.string().url(),
+  type: z.string().min(1),
+  size: z.number().int().positive().optional(),
+});
 
 const lessonSchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1),
+  id: z.string().optional(), // ID from existing lessons
+  title: z.string().min(1, "Lesson title is required"),
   description: z.string().optional(),
   content: z.string().optional(),
-  videoUrl: z.string().optional(),
-  duration: z.number().min(0).default(0),
-  order: z.number().min(1),
+  videoUrl: z.string().url().optional().or(z.literal('')),
+  duration: z.number().int().min(0).default(0),
+  order: z.number().int().min(1),
   isPublished: z.boolean().default(false),
   isFree: z.boolean().default(false),
+  type: LessonTypeEnum.default(LessonType.TEXT),
+  attachments: z.array(attachmentSchema).optional(),
+  quizQuestions: z.array(z.any()).optional(),
 })
 
 const moduleSchema = z.object({
-  id: z.string().optional(),
+  id: z.string().optional(), // ID from existing modules
   title: z.string().min(1),
   description: z.string().optional(),
   order: z.number().min(1),
@@ -63,6 +77,9 @@ export async function GET(
         modules: {
           include: {
             lessons: {
+              include: { // ADDED: Include attachments when fetching a single course
+                attachments: true,
+              },
               orderBy: {
                 order: "asc"
               }
@@ -184,6 +201,16 @@ export async function PUT(
                 order: lesson.order,
                 isPublished: lesson.isPublished,
                 isFree: lesson.isFree,
+                type: lesson.type,
+                quizQuestions: lesson.quizQuestions || [],
+                attachments: {
+                  create: lesson.attachments?.map(att => ({
+                    name: att.name,
+                    url: att.url,
+                    type: att.type,
+                    size: att.size,
+                  })) || [],
+                }
               }))
             }
           }))
@@ -206,11 +233,14 @@ export async function PUT(
         },
         modules: {
           include: {
-            lessons: true,
+            lessons: {
+              include: {
+                attachments: true, // Include attachments when returning updated lessons
+              },
+              orderBy: { order: "asc" }
+            },
           },
-          orderBy: {
-            order: "asc"
-          }
+          orderBy: { order: "asc" }
         },
         _count: {
           select: {

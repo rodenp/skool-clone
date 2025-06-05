@@ -3,16 +3,29 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { LessonType } from "@prisma/client" // Import generated LessonType
+
+const LessonTypeEnum = z.nativeEnum(LessonType);
+
+const attachmentSchema = z.object({
+  name: z.string().min(1),
+  url: z.string().url(),
+  type: z.string().min(1),
+  size: z.number().int().positive().optional(),
+});
 
 const lessonSchema = z.object({
-  title: z.string().min(1),
+  title: z.string().min(1, "Lesson title is required"),
   description: z.string().optional(),
   content: z.string().optional(),
-  videoUrl: z.string().optional(),
-  duration: z.number().min(0).default(0),
-  order: z.number().min(1),
+  videoUrl: z.string().url().optional().or(z.literal('')), // Allow empty string or valid URL
+  duration: z.number().int().min(0).default(0), // Assuming duration in minutes from frontend, convert to seconds if needed
+  order: z.number().int().min(1),
   isPublished: z.boolean().default(false),
   isFree: z.boolean().default(false),
+  type: LessonTypeEnum.default(LessonType.TEXT),
+  attachments: z.array(attachmentSchema).optional(),
+  quizQuestions: z.array(z.any()).optional(), // Basic schema for quiz questions
 })
 
 const moduleSchema = z.object({
@@ -94,10 +107,20 @@ export async function POST(request: NextRequest) {
                 description: lesson.description || null,
                 content: lesson.content || null,
                 videoUrl: lesson.videoUrl || null,
-                duration: lesson.duration,
+                duration: lesson.duration, // Consider converting to seconds if standardizing on seconds in DB
                 order: lesson.order,
                 isPublished: lesson.isPublished,
                 isFree: lesson.isFree,
+                type: lesson.type,
+                quizQuestions: lesson.quizQuestions || [],
+                attachments: {
+                  create: lesson.attachments?.map(att => ({
+                    name: att.name,
+                    url: att.url,
+                    type: att.type,
+                    size: att.size,
+                  })) || [],
+                }
               }))
             }
           }))
@@ -120,11 +143,14 @@ export async function POST(request: NextRequest) {
         },
         modules: {
           include: {
-            lessons: true,
+            lessons: {
+              include: {
+                attachments: true, // Include attachments when returning lessons
+              },
+              orderBy: { order: "asc" }
+            },
           },
-          orderBy: {
-            order: "asc"
-          }
+          orderBy: { order: "asc" }
         },
         _count: {
           select: {
@@ -209,12 +235,16 @@ export async function GET(request: NextRequest) {
                 order: true,
                 isPublished: true,
                 isFree: true,
+                type: true, // Return lesson type
+                // attachments count or simplified list can be returned here if needed
+                // For full attachments, a specific lesson endpoint might be better or ensure it's included above.
+                _count: {
+                  select: { attachments: true }
+                }
               }
             },
           },
-          orderBy: {
-            order: "asc"
-          }
+          orderBy: { order: "asc" }
         },
         _count: {
           select: {

@@ -304,16 +304,26 @@ model Module {
   @@map("modules")
 }
 
+enum LessonType {
+  TEXT
+  VIDEO
+  QUIZ
+  ASSIGNMENT
+  DISCUSSION
+}
+
 model Lesson {
   id          String    @id @default(cuid())
   title       String
   description String?
   content     String?   @db.Text
   videoUrl    String?
-  duration    Int?      // in seconds
+  duration    Int?      // in seconds or minutes, clarify from frontend
   order       Int
   isPublished Boolean   @default(false)
   isFree      Boolean   @default(false)
+  type        LessonType @default(TEXT) // Added
+  quizQuestions Json    @default("[]") // Added
 
   // Relationships
   moduleId    String
@@ -335,8 +345,8 @@ model Attachment {
   id       String @id @default(cuid())
   name     String
   url      String
-  type     String
-  size     Int?
+  type     String // Mime type or general category
+  size     Int?   // In bytes
 
   // Relationships
   lessonId String
