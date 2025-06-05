@@ -12,60 +12,81 @@ datasource db {
 
 // Authentication and User Management
 model User {
-  id              String    @id @default(cuid())
-  email           String    @unique
-  name            String?
-  username        String?   @unique
-  image           String?
-  bio             String?
-  emailVerified   DateTime?
-  hashedPassword  String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  username       String?   @unique
+  image          String?
+  bio            String?
+  emailVerified  DateTime?
+  hashedPassword String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   // GDPR compliance
-  gdprConsent     Boolean   @default(false)
-  gdprConsentDate DateTime?
+  gdprConsent        Boolean             @default(false)
+  gdprConsentDate    DateTime?
   dataExportRequests DataExportRequest[]
 
   // User preferences
-  timezone        String    @default("UTC")
-  notifications   Json      @default("{}")
+  timezone      String @default("UTC")
+  notifications Json   @default("{}")
 
   // Authentication
-  accounts        Account[]
-  sessions        Session[]
+  accounts Account[]
+  sessions Session[]
 
   // Community relationships
-  ownedCommunities Community[] @relation("CommunityOwner")
-  memberships     CommunityMember[]
+  ownedCommunities Community[]       @relation("CommunityOwner")
+  memberships      CommunityMember[]
 
   // Content creation
-  posts           Post[]
-  comments        Comment[]
-  reactions       Reaction[]
+  posts     Post[]
+  comments  Comment[]
+  reactions Reaction[]
 
   // Course relationships
-  createdCourses  Course[]  @relation("CourseCreator")
-  enrollments     Enrollment[]
-  lessonProgress  LessonProgress[]
+  createdCourses Course[]         @relation("CourseCreator")
+  enrollments    Enrollment[]
+  lessonProgress LessonProgress[]
 
   // Gamification
-  points          Int       @default(0)
-  level           Int       @default(1)
-  badges          UserBadge[]
-  achievements    UserAchievement[]
+  points       Int               @default(0)
+  level        Int               @default(1)
+  badges       UserBadge[]
+  achievements UserAchievement[]
 
   // Events
-  createdEvents   Event[]   @relation("EventCreator")
-  eventRSVPs      EventRSVP[]
+  createdEvents Event[]     @relation("EventCreator")
+  eventRSVPs    EventRSVP[]
 
   // Payments
   stripeCustomerId String?
-  subscriptions   Subscription[]
-  payments        Payment[]
+  subscriptions    Subscription[]
+  payments         Payment[]
 
   @@map("users")
+}
+
+// Plan model (basic structure)
+model Plan {
+  id           String   @id @default(cuid())
+  name         String // e.g., "Basic", "Premium"
+  price        Float // Cost of the plan
+  currency     String // e.g., "USD", "EUR"
+  billingCycle String // e.g., "monthly", "yearly"
+  features     String[] // List of features included in the plan
+  communityId  String? // If plans are specific to communities
+  active       Boolean  @default(true) // Whether the plan is currently available
+
+  community     Community?     @relation(fields: [communityId], references: [id])
+  subscriptions Subscription[]
+  payments      Payment[] // A plan can be associated with many payments
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("plans")
 }
 
 // NextAuth models
@@ -110,50 +131,54 @@ model VerificationToken {
 
 // Community Management
 model Community {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
-  slug        String    @unique
+  slug        String  @unique
   description String?
   image       String?
   banner      String?
-  isPrivate   Boolean   @default(false)
-  isFree      Boolean   @default(true)
-  price       Int?      @default(0) // in cents
-  currency    String    @default("USD")
+  isPrivate   Boolean @default(false)
+  isFree      Boolean @default(true)
+  price       Int?    @default(0) // in cents
+  currency    String  @default("USD")
 
   // Community settings
-  settings    Json      @default("{}")
+  settings Json @default("{}")
 
   // Ownership
-  ownerId     String
-  owner       User      @relation("CommunityOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String
+  owner   User   @relation("CommunityOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
   // Members
-  members     CommunityMember[]
+  members CommunityMember[]
 
   // Content
-  posts       Post[]
-  courses     Course[]
-  events      Event[]
+  posts   Post[]
+  courses Course[]
+  events  Event[]
 
   // Categories for posts
-  categories  Category[]
+  categories Category[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  // Subscriptions
+  subscriptions Subscription[]
+  plans         Plan[] // A community can have many plans
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("communities")
 }
 
 model CommunityMember {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   userId      String
   communityId String
   role        MemberRole @default(MEMBER)
-  joinedAt    DateTime  @default(now())
+  joinedAt    DateTime   @default(now())
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
 
   @@unique([userId, communityId])
   @@map("community_members")
@@ -182,12 +207,12 @@ model Category {
 }
 
 model Post {
-  id          String    @id @default(cuid())
-  title       String
-  content     String    @db.Text
-  image       String?
-  isPinned    Boolean   @default(false)
-  isLocked    Boolean   @default(false)
+  id       String  @id @default(cuid())
+  title    String
+  content  String  @db.Text
+  image    String?
+  isPinned Boolean @default(false)
+  isLocked Boolean @default(false)
 
   // Relationships
   authorId    String
@@ -198,52 +223,52 @@ model Post {
   category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   // Engagement
-  comments    Comment[]
-  reactions   Reaction[]
+  comments  Comment[]
+  reactions Reaction[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("posts")
 }
 
 model Comment {
-  id        String    @id @default(cuid())
-  content   String    @db.Text
+  id      String @id @default(cuid())
+  content String @db.Text
 
   // Relationships
-  authorId  String
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  postId    String
-  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  postId   String
+  post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   // Threading
-  parentId  String?
-  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
-  replies   Comment[] @relation("CommentReplies")
+  parentId String?
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentReplies")
 
   // Engagement
   reactions Reaction[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("comments")
 }
 
 model Reaction {
-  id        String      @id @default(cuid())
-  type      ReactionType
+  id   String       @id @default(cuid())
+  type ReactionType
 
   // Relationships
   userId    String
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   postId    String?
-  post      Post?       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
   commentId String?
-  comment   Comment?    @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime    @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([userId, postId])
   @@unique([userId, commentId])
@@ -260,17 +285,17 @@ enum ReactionType {
 
 // Course Platform
 model Course {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   title       String
-  description String?   @db.Text
+  description String? @db.Text
   image       String?
-  price       Int       @default(0) // in cents
-  currency    String    @default("USD")
-  isPublished Boolean   @default(false)
-  isFree      Boolean   @default(true)
+  price       Int     @default(0) // in cents
+  currency    String  @default("USD")
+  isPublished Boolean @default(false)
+  isFree      Boolean @default(true)
 
   // Course structure
-  modules     Module[]
+  modules Module[]
 
   // Relationships
   creatorId   String
@@ -281,62 +306,62 @@ model Course {
   // Enrollments
   enrollments Enrollment[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("courses")
 }
 
 model Module {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   title       String
   description String?
   order       Int
 
   // Relationships
-  courseId    String
-  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lessons     Lesson[]
+  courseId String
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons  Lesson[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("modules")
 }
 
 model Lesson {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   title       String
   description String?
-  content     String?   @db.Text
+  content     String? @db.Text
   videoUrl    String?
-  duration    Int?      // in seconds
+  duration    Int? // in seconds
   order       Int
-  isPublished Boolean   @default(false)
-  isFree      Boolean   @default(false)
+  isPublished Boolean @default(false)
+  isFree      Boolean @default(false)
 
   // Relationships
-  moduleId    String
-  module      Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  moduleId String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   // Attachments
   attachments Attachment[]
 
   // Progress tracking
-  progress    LessonProgress[]
+  progress LessonProgress[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("lessons")
 }
 
 model Attachment {
-  id       String @id @default(cuid())
-  name     String
-  url      String
-  type     String
-  size     Int?
+  id   String @id @default(cuid())
+  name String
+  url  String
+  type String
+  size Int?
 
   // Relationships
   lessonId String
@@ -348,38 +373,38 @@ model Attachment {
 }
 
 model Enrollment {
-  id         String    @id @default(cuid())
+  id String @id @default(cuid())
 
   // Relationships
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  courseId   String
-  course     Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   // Progress
-  progress   Float     @default(0) // percentage
+  progress    Float     @default(0) // percentage
   completedAt DateTime?
 
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, courseId])
   @@map("enrollments")
 }
 
 model LessonProgress {
-  id          String    @id @default(cuid())
-  isCompleted Boolean   @default(false)
-  timeSpent   Int       @default(0) // in seconds
+  id          String  @id @default(cuid())
+  isCompleted Boolean @default(false)
+  timeSpent   Int     @default(0) // in seconds
 
   // Relationships
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lessonId    String
-  lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, lessonId])
   @@map("lesson_progress")
@@ -387,15 +412,15 @@ model LessonProgress {
 
 // Events and Calendar
 model Event {
-  id          String    @id @default(cuid())
-  title       String
-  description String?   @db.Text
-  startDate   DateTime
-  endDate     DateTime?
-  timezone    String    @default("UTC")
-  location    String?
-  isVirtual   Boolean   @default(true)
-  meetingUrl  String?
+  id           String    @id @default(cuid())
+  title        String
+  description  String?   @db.Text
+  startDate    DateTime
+  endDate      DateTime?
+  timezone     String    @default("UTC")
+  location     String?
+  isVirtual    Boolean   @default(true)
+  meetingUrl   String?
   maxAttendees Int?
 
   // Relationships
@@ -405,26 +430,26 @@ model Event {
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
 
   // RSVPs
-  rsvps       EventRSVP[]
+  rsvps EventRSVP[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("events")
 }
 
 model EventRSVP {
-  id       String     @id @default(cuid())
-  status   RSVPStatus @default(GOING)
+  id     String     @id @default(cuid())
+  status RSVPStatus @default(GOING)
 
   // Relationships
-  userId   String
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventId  String
-  event    Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, eventId])
   @@map("event_rsvps")
@@ -438,26 +463,26 @@ enum RSVPStatus {
 
 // Gamification System
 model Badge {
-  id          String    @id @default(cuid())
-  name        String    @unique
+  id          String  @id @default(cuid())
+  name        String  @unique
   description String?
   icon        String?
   color       String?
-  points      Int       @default(0)
+  points      Int     @default(0)
 
   // Requirements
-  requirements Json     @default("{}")
+  requirements Json @default("{}")
 
   // Users who earned this badge
-  userBadges  UserBadge[]
+  userBadges UserBadge[]
 
-  createdAt   DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@map("badges")
 }
 
 model UserBadge {
-  id      String @id @default(cuid())
+  id String @id @default(cuid())
 
   // Relationships
   userId  String
@@ -472,25 +497,25 @@ model UserBadge {
 }
 
 model Achievement {
-  id          String    @id @default(cuid())
-  name        String    @unique
+  id          String  @id @default(cuid())
+  name        String  @unique
   description String?
   icon        String?
-  points      Int       @default(0)
+  points      Int     @default(0)
 
   // Requirements
-  requirements Json     @default("{}")
+  requirements Json @default("{}")
 
   // Users who earned this achievement
   userAchievements UserAchievement[]
 
-  createdAt   DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@map("achievements")
 }
 
 model UserAchievement {
-  id            String      @id @default(cuid())
+  id String @id @default(cuid())
 
   // Relationships
   userId        String
@@ -498,7 +523,7 @@ model UserAchievement {
   achievementId String
   achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
 
-  earnedAt      DateTime    @default(now())
+  earnedAt DateTime @default(now())
 
   @@unique([userId, achievementId])
   @@map("user_achievements")
@@ -506,77 +531,57 @@ model UserAchievement {
 
 // Payment and Subscription System
 model Subscription {
-  id               String             @id @default(cuid())
-  stripeSubscriptionId String?        @unique
-  status           SubscriptionStatus @default(ACTIVE)
-  plan             SubscriptionPlan   @default(FREE)
-  currentPeriodStart DateTime?
-  currentPeriodEnd DateTime?
-  cancelAtPeriodEnd Boolean           @default(false)
-  trialEnd         DateTime?
+  id          String    @id @default(cuid())
+  userId      String
+  communityId String
+  planId      String
+  startDate   DateTime
+  endDate     DateTime?
+  status      String // e.g., "active", "canceled", "expired"
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  // Relationships
-  userId           String
-  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  plan      Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  payments  Payment[] // A subscription can have many payments
 
   @@map("subscriptions")
 }
 
-enum SubscriptionStatus {
-  ACTIVE
-  CANCELED
-  INCOMPLETE
-  INCOMPLETE_EXPIRED
-  PAST_DUE
-  TRIALING
-  UNPAID
-}
-
-enum SubscriptionPlan {
-  FREE
-  PRO
-}
-
 model Payment {
-  id              String        @id @default(cuid())
-  stripePaymentId String?       @unique
-  amount          Int           // in cents
-  currency        String        @default("USD")
-  status          PaymentStatus @default(PENDING)
-  description     String?
+  id               String    @id @default(cuid())
+  userId           String // The user who made the payment
+  subscriptionId   String? // The subscription this payment is for
+  planId           String? // The plan this payment is for
+  amount           Float // The amount paid
+  currency         String // Currency of the payment
+  paymentGateway   String // e.g., "stripe", "paypal"
+  paymentGatewayId String    @unique // The ID of the transaction from the payment gateway
+  status           String // e.g., "pending", "succeeded", "failed"
+  paidAt           DateTime? // When the payment was successfully processed
 
-  // Relationships
-  userId          String
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  plan         Plan?         @relation(fields: [planId], references: [id], onDelete: SetNull)
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("payments")
 }
 
-enum PaymentStatus {
-  PENDING
-  SUCCEEDED
-  FAILED
-  CANCELED
-  REFUNDED
-}
-
 // GDPR Compliance
 model DataExportRequest {
-  id        String              @id @default(cuid())
-  status    DataExportStatus    @default(PENDING)
-  requestedAt DateTime          @default(now())
+  id          String           @id @default(cuid())
+  status      DataExportStatus @default(PENDING)
+  requestedAt DateTime         @default(now())
   completedAt DateTime?
   downloadUrl String?
 
   // Relationships
-  userId    String
-  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("data_export_requests")
 }
@@ -590,17 +595,17 @@ enum DataExportStatus {
 
 // Notifications
 model Notification {
-  id        String           @id @default(cuid())
-  type      NotificationType
-  title     String
-  message   String           @db.Text
-  isRead    Boolean          @default(false)
-  data      Json?            @default("{}")
+  id      String           @id @default(cuid())
+  type    NotificationType
+  title   String
+  message String           @db.Text
+  isRead  Boolean          @default(false)
+  data    Json?            @default("{}")
 
   // Relationships
-  userId    String
+  userId String
 
-  createdAt DateTime         @default(now())
+  createdAt DateTime @default(now())
 
   @@map("notifications")
 }
