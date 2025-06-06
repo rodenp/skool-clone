@@ -8,7 +8,7 @@ import Youtube from "@tiptap/extension-youtube"
 import Color from "@tiptap/extension-color"
 import TextStyle from "@tiptap/extension-text-style"
 import Highlight from "@tiptap/extension-highlight"
-import Table, { TableRow, TableCell, TableHeader } from "@tiptap/extension-table" // Modified import
+import Table from "@tiptap/extension-table" // Reverted import
 import TaskList from "@tiptap/extension-task-list"
 import TaskItem from "@tiptap/extension-task-item"
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight"
@@ -74,7 +74,7 @@ export function RichTextEditor({ content, onChange, placeholder, className }: Ri
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        codeBlock: false,
+        codeBlock: false, // Reverted to only disabling codeBlock
       }),
       Image.configure({
         HTMLAttributes: {
@@ -100,9 +100,7 @@ export function RichTextEditor({ content, onChange, placeholder, className }: Ri
       Table.configure({
         resizable: true,
       }),
-      TableRow, // Added
-      TableCell, // Added
-      TableHeader, // Added
+      // TableRow, TableCell, TableHeader removed from here
       TaskList,
       TaskItem.configure({
         nested: true,
