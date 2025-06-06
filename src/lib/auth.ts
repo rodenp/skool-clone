@@ -115,3 +115,12 @@ declare module "next-auth/jwt" {
     level: number
   }
 }
+
+import { getServerSession } from "next-auth/next";
+// authOptions should already be defined in this file.
+// If authOptions is not already exported, ensure it is: export const authOptions ...
+
+export async function getCurrentUser() {
+  const session = await getServerSession(authOptions);
+  return session?.user;
+}

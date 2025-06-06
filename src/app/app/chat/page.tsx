@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getCurrentUser } from '@/lib/session'; // Placeholder
+import { getCurrentUser } from '@/lib/auth'; // Placeholder
 
 import ChannelList from '@/components/chat/ChannelList';
 import MessageList, { MessageListHandle } from '@/components/chat/MessageList'; // Import handle type

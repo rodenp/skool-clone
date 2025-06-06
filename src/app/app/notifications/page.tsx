@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import NotificationList from '@/components/notifications/NotificationList';
-import { getCurrentUser } from '@/lib/session'; // Placeholder
+import { getCurrentUser } from '@/lib/auth'; // Placeholder
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';

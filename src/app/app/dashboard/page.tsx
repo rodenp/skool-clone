@@ -31,7 +31,10 @@ import {
   ShoppingBag, // For 1-Time Sales Count
   Clock3,      // For Trials in Progress
   CheckCircle, // For Recently Activated Subs
-  Zap          // For Trial Conversion Rate (placeholder)
+  Zap,
+  Activity,    // For Active Users
+  CalendarDays, // For Monthly Active Users
+  LineChart    // For Daily Activity
 } from "lucide-react"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -68,6 +71,18 @@ interface AnalyticsMetrics {
   newSignupsPrevious30Days: number;
   conversionRate: number | null;
   visitorDataStatus: string;
+}
+
+interface GroupActivityMetrics {
+  totalMembers: number;
+  activeMembersLast30Days: number | null;
+  monthlyActiveMembers: number | null; // Placeholder
+  dailyActivity: number | null;        // Placeholder
+  dataStatus: {
+    activeMembers: string;
+    detailedActivity: string;
+  };
+  context?: string;
 }
 
 const recentActivity = [
@@ -173,6 +188,10 @@ export default function DashboardPage() {
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
+  const [groupActivityMetrics, setGroupActivityMetrics] = useState<GroupActivityMetrics | null>(null);
+  const [isGroupActivityLoading, setIsGroupActivityLoading] = useState(true);
+  const [groupActivityError, setGroupActivityError] = useState<string | null>(null);
+
   const fetchFinancialMetrics = useCallback(async () => {
     setIsLoadingFinancials(true);
     setFinancialError(null);
@@ -215,16 +234,40 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const fetchGroupActivityMetrics = useCallback(async () => {
+    setIsGroupActivityLoading(true);
+    setGroupActivityError(null);
+    try {
+      // Fetch platform-wide stats by not providing communityId
+      const response = await fetch('/api/dashboard/group-activity');
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error("You don't have permission to view group activity metrics.");
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch group activity metrics.');
+      }
+      const data: GroupActivityMetrics = await response.json();
+      setGroupActivityMetrics(data);
+    } catch (err: any) {
+      setGroupActivityError(err.message);
+    } finally {
+      setIsGroupActivityLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     // @ts-ignore
     if (session?.user?.role === 'ADMIN') {
       fetchFinancialMetrics();
       fetchAnalyticsMetrics();
+      fetchGroupActivityMetrics();
     } else if (session?.user) {
       setIsLoadingFinancials(false);
       setIsAnalyticsLoading(false);
+      setIsGroupActivityLoading(false);
     }
-  }, [session, fetchFinancialMetrics, fetchAnalyticsMetrics]);
+  }, [session, fetchFinancialMetrics, fetchAnalyticsMetrics, fetchGroupActivityMetrics]);
 
   const progressToNextLevel = ((dashboardStats.totalPoints % 200) / 200) * 100
 
@@ -363,6 +406,42 @@ export default function DashboardPage() {
                 value={analyticsMetrics.conversionRate !== null ? `${analyticsMetrics.conversionRate.toFixed(1)}%` : "N/A"}
                 description={analyticsMetrics.visitorDataStatus === 'requires_analytics_integration' ? "Requires analytics integration" : ""}
                 icon={<Percent className="h-4 w-4 text-muted-foreground" />}
+              />
+            </div>
+          )}
+
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mt-8 mb-3">Platform Activity Overview</h2>
+          {isGroupActivityLoading && <p className="text-gray-500 dark:text-gray-400">Loading platform activity...</p>}
+          {groupActivityError && (
+            <Alert variant="destructive">
+              <AlertTitle>Error Loading Platform Activity</AlertTitle>
+              <AlertDescription>{groupActivityError} <Button variant="link" size="sm" onClick={fetchGroupActivityMetrics}>Try again</Button></AlertDescription>
+            </Alert>
+          )}
+          {groupActivityMetrics && !isGroupActivityLoading && !groupActivityError && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatCard
+                title="Total Users (Platform)"
+                value={groupActivityMetrics.totalMembers}
+                icon={<UsersIcon className="h-4 w-4 text-muted-foreground" />}
+              />
+              <StatCard
+                title="Active Users (Platform, 30d)"
+                value={groupActivityMetrics.activeMembersLast30Days !== null ? groupActivityMetrics.activeMembersLast30Days : "N/A"}
+                description={groupActivityMetrics.dataStatus?.activeMembers.replace(/_/g, ' ') || "Activity data"}
+                icon={<Activity className="h-4 w-4 text-muted-foreground" />}
+              />
+              <StatCard
+                title="Monthly Active Users"
+                value={groupActivityMetrics.monthlyActiveMembers !== null ? groupActivityMetrics.monthlyActiveMembers : "N/A"}
+                description={groupActivityMetrics.dataStatus?.detailedActivity.replace(/_/g, ' ') || "Requires advanced setup"}
+                icon={<CalendarDays className="h-4 w-4 text-muted-foreground" />}
+              />
+              <StatCard
+                title="Daily Activity"
+                value={groupActivityMetrics.dailyActivity !== null ? groupActivityMetrics.dailyActivity : "N/A"}
+                description={groupActivityMetrics.dataStatus?.detailedActivity.replace(/_/g, ' ') || "Requires advanced setup"}
+                icon={<LineChart className="h-4 w-4 text-muted-foreground" />}
               />
             </div>
           )}

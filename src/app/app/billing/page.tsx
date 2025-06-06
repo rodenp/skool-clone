@@ -1,5 +1,5 @@
 import React from 'react';
-import { getCurrentUser } from '@/lib/session'; // Assuming a way to get current user
+import { getCurrentUser } from '@/lib/auth'; // Assuming a way to get current user
 import BillingHistoryList from '@/components/billing/BillingHistoryList';
 import PlanSelection from '@/components/billing/PlanSelection';
 import ManagePaymentMethods from '@/components/billing/ManagePaymentMethods';

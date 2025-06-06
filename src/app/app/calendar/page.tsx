@@ -1,7 +1,7 @@
 'use client'; // Making it a client component to manage state
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getCurrentUser } from '@/lib/session'; // Assuming a way to get current user
+import { getCurrentUser } from '@/lib/auth'; // Assuming a way to get current user
 import EventCalendarView from '@/components/calendar/EventCalendarView';
 import EventDetailsCard from '@/components/calendar/EventDetailsCard';
 import EventForm from '@/components/calendar/EventForm';
