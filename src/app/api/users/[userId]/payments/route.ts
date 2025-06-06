@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'; // Add this at the top of the file
+
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'; // Assuming prisma client is at src/lib/prisma
 import { getCurrentUser } from '@/lib/auth'; // Assuming a way to get current user
