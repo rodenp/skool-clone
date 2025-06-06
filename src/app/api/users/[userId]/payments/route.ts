@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma'; // Assuming prisma client is at src/lib/prisma
-import { getCurrentUser } from '@/lib/session'; // Assuming a way to get current user
+import { prisma } from '@/lib/prisma'; // Assuming prisma client is at src/lib/prisma
+import { getCurrentUser } from '@/lib/auth'; // Assuming a way to get current user
 
 interface RouteContext {
   params: {

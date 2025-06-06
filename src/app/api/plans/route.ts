@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma'; // Assuming prisma client is at src/lib/prisma
+import { prisma } from '@/lib/prisma'; // Assuming prisma client is at src/lib/prisma
 
 // GET /api/plans - Fetches all active plans
 export async function GET(request: Request) {
