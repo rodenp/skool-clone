@@ -1,12 +1,14 @@
 // src/app/app/profile/page.tsx
+// src/app/app/profile/page.tsx
 import React from 'react';
 import { getCurrentUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Settings, CreditCard, Bell, Edit3, LogOut } from 'lucide-react'; // Icons
+import { Settings, CreditCard, Bell, Edit3, LogOut, Users, Activity as ActivityIcon } from 'lucide-react'; // Added Users, ActivityIcon
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
@@ -22,6 +24,41 @@ export default async function ProfilePage() {
         </Alert>
       </div>
     );
+  }
+
+  const userMemberships = await prisma.communityMember.findMany({
+    where: { userId: user.id },
+    include: {
+      community: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          image: true
+        }
+      }
+    },
+    orderBy: {
+      community: {
+        name: 'asc'
+      }
+    }
+  });
+
+  let activityData: Array<{ date: string; count: number }> = [];
+  if (user) {
+    try {
+      // Construct the full URL for server-side fetch
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'; // Fallback for local dev
+      const response = await fetch(`${baseUrl}/api/users/${user.id}/activity-heatmap`, { cache: 'no-store' });
+      if (response.ok) {
+        activityData = await response.json();
+      } else {
+        console.error("Failed to fetch activity heatmap data:", await response.text());
+      }
+    } catch (error) {
+      console.error("Error fetching activity heatmap data:", error);
+    }
   }
 
   const getInitials = (name?: string | null, fallback = 'U') => {
@@ -99,14 +136,84 @@ export default async function ProfilePage() {
                         <CreditCard className="h-4 w-4 mr-1.5" /> Billing
                     </Link>
                 </Button>
-                 {/* Add sign out button directly if not in a global header dropdown, or link to account settings */}
-                 {/* <form action="/auth/signout" method="post">
-                    <Button type="submit" variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                        <LogOut className="h-4 w-4 mr-1.5" /> Sign Out
-                    </Button>
-                 </form> */}
             </div>
         </CardFooter>
+      </Card>
+
+      {/* My Communities Section */}
+      <Card className="shadow-lg mt-8">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Users className="h-5 w-5 mr-2 text-gray-700 dark:text-gray-300" />
+            My Communities
+          </CardTitle>
+          <CardDescription>Communities you are a member of.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {userMemberships.length > 0 ? (
+            <ul className="space-y-3">
+              {userMemberships.map(membership => (
+                <li key={membership.community.id}>
+                  <Link href={`/app/communities/${membership.community.id}`} className="flex items-center space-x-3 p-3 -m-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <Avatar className="h-10 w-10 border dark:border-gray-700">
+                      <AvatarImage src={membership.community.image || undefined} alt={membership.community.name} />
+                      <AvatarFallback>{getInitials(membership.community.name, 'C')}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">{membership.community.name}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">You are not a member of any communities yet.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Activity Heatmap Section */}
+      <Card className="shadow-lg mt-8">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <ActivityIcon className="h-5 w-5 mr-2 text-gray-700 dark:text-gray-300" />
+            Activity Heatmap
+          </CardTitle>
+          <CardDescription>Your contribution activity over the last year.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/*
+            Placeholder for react-calendar-heatmap or similar library.
+            Example usage:
+            <CalendarHeatmap
+              startDate={new Date(new Date().setDate(new Date().getDate() - 365))} // Example: last 365 days
+              endDate={new Date()}
+              values={activityData} // activityData should be an array of { date: string | Date, count: number }
+              classForValue={(value) => {
+                if (!value) return 'color-empty';
+                // Example: scale of 0-4 for intensity
+                return `color-scale-${Math.min(value.count, 4)}`;
+              }}
+              tooltipDataAttrs={value => (value && value.date && value.count ? { 'data-tip': `${new Date(value.date).toLocaleDateString()}: ${value.count} activities` } : {})}
+            />
+            // Corresponding CSS would be needed:
+            // .color-empty { fill: #eeeeee; }
+            // .color-scale-0 { fill: #c6e48b; } // or some other very light color if 0 means no activity but day is tracked
+            // .color-scale-1 { fill: #7bc96f; }
+            // .color-scale-2 { fill: #49a951; }
+            // .color-scale-3 { fill: #30813e; }
+            // .color-scale-4 { fill: #196127; }
+          */}
+          {activityData.length > 0 ? (
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Activity Heatmap would be shown here.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-500 mb-1">Raw data (last 5 entries):</p>
+              <pre className="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs overflow-x-auto">
+                {JSON.stringify(activityData.slice(-5).reverse(), null, 2)}
+              </pre>
+            </div>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">No activity data to display for the heatmap, or it could not be loaded.</p>
+          )}
+        </CardContent>
       </Card>
     </div>
   );

@@ -11,7 +11,7 @@ import {
   Users,
   BookOpen,
   Calendar,
-  Trophy,
+  // Trophy, // Leaderboard icon, removed as the link is removed
   Search,
   Plus,
   Settings,
@@ -26,7 +26,7 @@ const navigation = [
   { name: "Communities", href: "/app/communities", icon: Users },
   { name: "Courses", href: "/app/courses", icon: BookOpen },
   { name: "Calendar", href: "/app/calendar", icon: Calendar },
-  { name: "Leaderboard", href: "/app/leaderboard", icon: Trophy },
+  // { name: "Leaderboard", href: "/app/leaderboard", icon: Trophy }, // Removed this line
 ]
 
 const quickActions = [
