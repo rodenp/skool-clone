@@ -1,14 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+// Removed Table, TableBody, TableCell, TableHead, TableHeader, TableRow imports
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button'; // For potential actions like "View Invoice"
@@ -111,46 +104,62 @@ const BillingHistoryList: React.FC<BillingHistoryListProps> = ({ userId }) => {
   };
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Date</TableHead>
-          <TableHead>Description</TableHead>
-          <TableHead>Amount</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {payments.map((payment) => (
-          <TableRow key={payment.id}>
-            <TableCell>{new Date(payment.createdAt).toLocaleDateString()}</TableCell>
-            <TableCell>{payment.planName || 'One-time payment or direct charge'}</TableCell>
-            <TableCell>
-              {new Intl.NumberFormat('en-US', { style: 'currency', currency: payment.currency }).format(payment.amount)}
-            </TableCell>
-            <TableCell>
-              <Badge variant={getStatusBadgeVariant(payment.status) as any}>
-                {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              {/* Conceptual: Link to Stripe invoice if paymentGatewayId is available */}
-              {payment.status.toLowerCase() === 'succeeded' && payment.paymentGatewayId?.startsWith('in_') && (
-                 <Button variant="outline" size="sm" onClick={() => window.open(`https://dashboard.stripe.com/test/invoices/${payment.paymentGatewayId}`, '_blank')}>
-                    View Invoice (Test)
-                 </Button>
-              )}
-               {payment.status.toLowerCase() === 'succeeded' && payment.paymentGatewayId?.startsWith('py_') && (
-                 <Button variant="outline" size="sm" onClick={() => window.open(`https://dashboard.stripe.com/test/payments/${payment.paymentGatewayId}`, '_blank')}>
-                    View Payment (Test)
-                 </Button>
-              )}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-800">
+          <tr>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              Date
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              Description
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              Amount
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              Status
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+          {payments.map((payment) => (
+            <tr key={payment.id}>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                {new Date(payment.createdAt).toLocaleDateString()}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                {payment.planName || 'One-time payment or direct charge'}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: payment.currency }).format(payment.amount)}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                <Badge variant={getStatusBadgeVariant(payment.status) as any}>
+                  {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                </Badge>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                {/* Conceptual: Link to Stripe invoice if paymentGatewayId is available */}
+                {payment.status.toLowerCase() === 'succeeded' && payment.paymentGatewayId?.startsWith('in_') && (
+                  <Button variant="outline" size="sm" onClick={() => window.open(`https://dashboard.stripe.com/test/invoices/${payment.paymentGatewayId}`, '_blank')}>
+                      View Invoice (Test)
+                  </Button>
+                )}
+                {payment.status.toLowerCase() === 'succeeded' && payment.paymentGatewayId?.startsWith('py_') && (
+                  <Button variant="outline" size="sm" onClick={() => window.open(`https://dashboard.stripe.com/test/payments/${payment.paymentGatewayId}`, '_blank')}>
+                      View Payment (Test)
+                  </Button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 };
 
