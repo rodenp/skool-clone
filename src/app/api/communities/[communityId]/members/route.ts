@@ -3,29 +3,31 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: { communityId: string } }
 ) {
   try {
-    const { slug } = await params
+    const { communityId } = params;
     const { searchParams } = new URL(request.url)
     const limit = Number(searchParams.get("limit")) || 50
 
-    // First find the community
-    const community = await prisma.community.findUnique({
-      where: { slug },
-      select: { id: true }
-    })
+    // Community ID is now directly available from params.
+    // No need to fetch community first unless other community details are needed.
+    // For fetching members, communityId is sufficient.
+    // Optional: You might want to check if the community actually exists first.
+    const communityExists = await prisma.community.count({
+      where: { id: communityId },
+    });
 
-    if (!community) {
+    if (communityExists === 0) {
       return NextResponse.json(
         { error: "Community not found" },
         { status: 404 }
-      )
+      );
     }
 
     // Fetch members
     const members = await prisma.communityMember.findMany({
-      where: { communityId: community.id },
+      where: { communityId: communityId },
       take: limit,
       orderBy: [
         { role: "asc" }, // Owners first, then admins, etc.

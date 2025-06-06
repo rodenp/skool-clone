@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: { communityId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -17,11 +17,11 @@ export async function POST(
       )
     }
 
-    const { slug } = await params
+    const { communityId } = params;
 
     // Find the community
     const community = await prisma.community.findUnique({
-      where: { slug },
+      where: { id: communityId },
       select: {
         id: true,
         name: true,

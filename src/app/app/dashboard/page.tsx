@@ -1,6 +1,8 @@
 "use client"
 
+import React, { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react"
+import StatCard from "@/components/dashboard/StatCard"; // Import the new StatCard
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -18,18 +20,54 @@ import {
   ArrowRight,
   MessageCircle,
   Heart,
-  Eye
+  Eye,
+  Users as UsersIcon,
+  DollarSign,
+  TrendingDown as TrendingDownIcon,
+  TrendingUp as TrendingUpIcon,
+  Briefcase,
+  UserPlus,
+  Percent,
+  ShoppingBag, // For 1-Time Sales Count
+  Clock3,      // For Trials in Progress
+  CheckCircle, // For Recently Activated Subs
+  Zap          // For Trial Conversion Rate (placeholder)
 } from "lucide-react"
 import Link from "next/link"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Mock data - in real app this would come from API
-const dashboardStats = {
+// We will remove or ignore parts of this as we fetch real financial data
+const dashboardStats = { // This can remain for non-financial stats or be removed
   totalCommunities: 3,
-  totalMembers: 248,
+  totalMembers: 248, // This might be different from "Paid Members"
   totalCourses: 5,
   totalPoints: 1420,
   level: 8,
   nextLevelPoints: 1800,
+};
+
+
+interface FinancialMetrics {
+  totalActiveSubscriptions: number;
+  numberOfPaidMembers: number;
+  mrr: number;
+  churnRateSimplified: number;
+  churnedLast30DaysCount: number;
+  // New "Other Metrics" fields
+  oneTimeSalesCountLast30Days?: number;
+  oneTimeSalesValueLast30Days?: number;
+  trialsInProgressCount?: number;
+  recentlyActivatedSubscriptionsLast30Days?: number;
+  trialConversionRate?: number | null; // Can be null
+}
+
+interface AnalyticsMetrics {
+  aboutPageVisitors: number | null;
+  newSignupsLast30Days: number;
+  newSignupsPrevious30Days: number;
+  conversionRate: number | null;
+  visitorDataStatus: string;
 }
 
 const recentActivity = [
@@ -127,6 +165,66 @@ const featuredCommunities = [
 
 export default function DashboardPage() {
   const { data: session } = useSession()
+  const [financialMetrics, setFinancialMetrics] = useState<FinancialMetrics | null>(null);
+  const [isLoadingFinancials, setIsLoadingFinancials] = useState(true); // Renamed for clarity
+  const [financialError, setFinancialError] = useState<string | null>(null);
+
+  const [analyticsMetrics, setAnalyticsMetrics] = useState<AnalyticsMetrics | null>(null);
+  const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
+  const fetchFinancialMetrics = useCallback(async () => {
+    setIsLoadingFinancials(true);
+    setFinancialError(null);
+    try {
+      const response = await fetch('/api/dashboard/financials');
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error("You don't have permission to view these metrics.");
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch financial metrics.');
+      }
+      const data: FinancialMetrics = await response.json();
+      setFinancialMetrics(data);
+    } catch (err: any) {
+      setFinancialError(err.message);
+    } finally {
+      setIsLoadingFinancials(false);
+    }
+  }, []);
+
+  const fetchAnalyticsMetrics = useCallback(async () => {
+    setIsAnalyticsLoading(true);
+    setAnalyticsError(null);
+    try {
+      const response = await fetch('/api/dashboard/analytics');
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error("You don't have permission to view these metrics.");
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch analytics metrics.');
+      }
+      const data: AnalyticsMetrics = await response.json();
+      setAnalyticsMetrics(data);
+    } catch (err: any) {
+      setAnalyticsError(err.message);
+    } finally {
+      setIsAnalyticsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // @ts-ignore
+    if (session?.user?.role === 'ADMIN') {
+      fetchFinancialMetrics();
+      fetchAnalyticsMetrics();
+    } else if (session?.user) {
+      setIsLoadingFinancials(false);
+      setIsAnalyticsLoading(false);
+    }
+  }, [session, fetchFinancialMetrics, fetchAnalyticsMetrics]);
 
   const progressToNextLevel = ((dashboardStats.totalPoints % 200) / 200) * 100
 
@@ -135,10 +233,10 @@ export default function DashboardPage() {
       {/* Welcome Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
             Welcome back, {session?.user?.name?.split(' ')[0]}! 👋
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             Here's what's happening in your communities today
           </p>
         </div>
@@ -150,7 +248,129 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Financial Metrics Section - Only for Admins */}
+      {/* @ts-ignore */}
+      {session?.user?.role === 'ADMIN' && (
+        <>
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-3">Financial Overview</h2>
+          {isLoadingFinancials && <p className="text-gray-500 dark:text-gray-400">Loading financial metrics...</p>}
+          {financialError && (
+            <Alert variant="destructive">
+              <AlertTitle>Error Loading Financials</AlertTitle>
+              <AlertDescription>{financialError} <Button variant="link" size="sm" onClick={fetchFinancialMetrics}>Try again</Button></AlertDescription>
+            </Alert>
+          )}
+          {financialMetrics && !isLoadingFinancials && !financialError && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+              <StatCard
+                title="Active Subscriptions"
+                value={financialMetrics.totalActiveSubscriptions}
+                icon={<Briefcase className="h-4 w-4 text-muted-foreground" />}
+              />
+              <StatCard
+                title="Paid Members"
+                value={financialMetrics.numberOfPaidMembers}
+                icon={<UsersIcon className="h-4 w-4 text-muted-foreground" />}
+              />
+              <StatCard
+                title="MRR"
+                value={`$${financialMetrics.mrr.toFixed(2)}`}
+                icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+              />
+              <StatCard
+                title="Churn Rate (30d)"
+                value={`${financialMetrics.churnRateSimplified.toFixed(2)}%`}
+                description="Simplified"
+                icon={<TrendingDownIcon className="h-4 w-4 text-muted-foreground" />}
+              />
+               <StatCard
+                value={financialMetrics.churnedLast30DaysCount}
+                description="Last 30 days"
+                icon={<UsersIcon className="h-4 w-4 text-muted-foreground opacity-70" />}
+              />
+              {/* Adding New "Other Metrics" StatCards here */}
+              {financialMetrics.oneTimeSalesCountLast30Days !== undefined && (
+                <StatCard
+                  title="1-Time Sales (30d)"
+                  value={financialMetrics.oneTimeSalesCountLast30Days}
+                  icon={<ShoppingBag className="h-4 w-4 text-muted-foreground" />}
+                />
+              )}
+              {financialMetrics.oneTimeSalesValueLast30Days !== undefined && (
+                <StatCard
+                  title="1-Time Sales Value (30d)"
+                  value={`$${financialMetrics.oneTimeSalesValueLast30Days.toFixed(2)}`}
+                  icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+                />
+              )}
+              {financialMetrics.trialsInProgressCount !== undefined && (
+                <StatCard
+                  title="Trials in Progress"
+                  value={financialMetrics.trialsInProgressCount}
+                  icon={<Clock3 className="h-4 w-4 text-muted-foreground" />}
+                />
+              )}
+              {financialMetrics.recentlyActivatedSubscriptionsLast30Days !== undefined && (
+                <StatCard
+                  title="Newly Active Subs (30d)"
+                  value={financialMetrics.recentlyActivatedSubscriptionsLast30Days}
+                  description="Proxy for trial conversions"
+                  icon={<CheckCircle className="h-4 w-4 text-muted-foreground" />}
+                />
+              )}
+              {financialMetrics.trialConversionRate !== undefined && ( // Also check if it's part of the API response
+                <StatCard
+                  title="Trial Conversion Rate"
+                  value={financialMetrics.trialConversionRate !== null ? `${financialMetrics.trialConversionRate.toFixed(1)}%` : "N/A"}
+                  description="Requires detailed tracking"
+                  icon={<Zap className="h-4 w-4 text-muted-foreground" />}
+                />
+              )}
+            </div>
+          )}
+
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mt-8 mb-3">Usage Analytics Overview</h2>
+          {isAnalyticsLoading && <p className="text-gray-500 dark:text-gray-400">Loading usage analytics...</p>}
+          {analyticsError && (
+            <Alert variant="destructive">
+              <AlertTitle>Error Loading Analytics</AlertTitle>
+              <AlertDescription>{analyticsError} <Button variant="link" size="sm" onClick={fetchAnalyticsMetrics}>Try again</Button></AlertDescription>
+            </Alert>
+          )}
+          {analyticsMetrics && !isAnalyticsLoading && !analyticsError && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <StatCard
+                title="New Signups (Last 30d)"
+                value={analyticsMetrics.newSignupsLast30Days}
+                description={(() => {
+                  const { newSignupsLast30Days, newSignupsPrevious30Days } = analyticsMetrics;
+                  const change = newSignupsPrevious30Days > 0
+                    ? ((newSignupsLast30Days - newSignupsPrevious30Days) / newSignupsPrevious30Days) * 100
+                    : (newSignupsLast30Days > 0 ? 100 : 0); // Handle division by zero or if previous is zero
+                  const changeText = change === 100 && newSignupsPrevious30Days === 0 && newSignupsLast30Days > 0 ? "New" : `${change.toFixed(1)}%`;
+                  return `${change >= 0 ? '+' : ''}${changeText} from previous 30 days`;
+                })()}
+                icon={<UserPlus className="h-4 w-4 text-muted-foreground" />}
+              />
+              <StatCard
+                title="About Page Visitors"
+                value={analyticsMetrics.aboutPageVisitors !== null ? analyticsMetrics.aboutPageVisitors : "N/A"}
+                description={analyticsMetrics.visitorDataStatus === 'requires_analytics_integration' ? "Requires analytics integration" : "Last 7 days"}
+                icon={<Eye className="h-4 w-4 text-muted-foreground" />}
+              />
+              <StatCard
+                title="Signup Conversion Rate"
+                value={analyticsMetrics.conversionRate !== null ? `${analyticsMetrics.conversionRate.toFixed(1)}%` : "N/A"}
+                description={analyticsMetrics.visitorDataStatus === 'requires_analytics_integration' ? "Requires analytics integration" : ""}
+                icon={<Percent className="h-4 w-4 text-muted-foreground" />}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Existing General Stats Cards - these can be kept or removed */}
+      <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-3">General Platform Stats</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

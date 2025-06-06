@@ -3,13 +3,14 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  // Assuming params is directly available, not a Promise. Adjust if project structure differs.
+  { params }: { params: { communityId: string } }
 ) {
   try {
-    const { slug } = await params
+    const { communityId } = params; // Or const communityId = params.communityId;
 
     const community = await prisma.community.findUnique({
-      where: { slug },
+      where: { id: communityId },
       include: {
         owner: {
           select: {
