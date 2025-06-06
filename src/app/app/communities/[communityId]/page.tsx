@@ -76,11 +76,11 @@ export default function CommunityPage() {
   const [isMember, setIsMember] = useState(false)
   const [userRole, setUserRole] = useState<string>("")
 
-  const slug = params.slug as string
+  const communityIdFromParams = params.communityId as string
 
   const fetchCommunity = useCallback(async () => {
     try {
-      const response = await fetch(`/api/communities/${slug}`)
+      const response = await fetch(`/api/communities/${communityIdFromParams}`)
       if (!response.ok) {
         throw new Error("Community not found")
       }
@@ -99,11 +99,11 @@ export default function CommunityPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [slug, session?.user?.id])
+  }, [communityIdFromParams, session?.user?.id])
 
   const fetchMembers = useCallback(async () => {
     try {
-      const response = await fetch(`/api/communities/${slug}/members`)
+      const response = await fetch(`/api/communities/${communityIdFromParams}/members`)
       if (response.ok) {
         const data = await response.json()
         setMembers(data)
@@ -111,7 +111,7 @@ export default function CommunityPage() {
     } catch (error) {
       console.error("Failed to fetch members:", error)
     }
-  }, [slug])
+  }, [communityIdFromParams])
 
   useEffect(() => {
     fetchCommunity()
@@ -126,7 +126,7 @@ export default function CommunityPage() {
 
     setIsJoining(true)
     try {
-      const response = await fetch(`/api/communities/${slug}/join`, {
+      const response = await fetch(`/api/communities/${communityIdFromParams}/join`, {
         method: "POST",
       })
 
@@ -259,7 +259,7 @@ export default function CommunityPage() {
                   <div className="flex items-center gap-2">
                     {isOwner && (
                       <Button variant="outline" size="sm" asChild>
-                        <Link href={`/app/communities/${slug}/settings`}>
+                        <Link href={`/app/communities/${communityIdFromParams}/settings`}>
                           <Settings className="h-4 w-4 mr-2" />
                           Settings
                         </Link>

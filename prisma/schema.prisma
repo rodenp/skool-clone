@@ -29,12 +29,15 @@ model User {
   dataExportRequests DataExportRequest[]
 
   // User preferences
-  timezone      String @default("UTC")
-  notifications Json   @default("{}")
+  timezone String @default("UTC")
+  // notifications Json   @default("{}") // This was likely for settings, replaced by proper relation below
 
   // Authentication
-  accounts Account[]
-  sessions Session[]
+  notifications        Notification[]            @relation("UserNotifications") // Notifications a user receives
+  actedNotifications   Notification[]            @relation("NotificationActor") // Notifications a user caused
+  notificationSettings UserNotificationSetting[] // User's custom notification settings
+  accounts             Account[]
+  sessions             Session[]
 
   // Community relationships
   ownedCommunities Community[]       @relation("CommunityOwner")
@@ -61,9 +64,12 @@ model User {
   eventRSVPs    EventRSVP[]
 
   // Payments
-  stripeCustomerId String?
-  subscriptions    Subscription[]
-  payments         Payment[]
+  stripeCustomerId   String?
+  subscriptions      Subscription[]
+  payments           Payment[]
+  ChatChannelMember  ChatChannelMember[]
+  ChatMessage        ChatMessage[]
+  MessageReadReceipt MessageReadReceipt[]
 
   @@map("users")
 }
@@ -161,8 +167,10 @@ model Community {
   categories Category[]
 
   // Subscriptions
-  subscriptions Subscription[]
-  plans         Plan[] // A community can have many plans
+  subscriptions            Subscription[]
+  plans                    Plan[] // A community can have many plans
+  notifications            Notification[] // Notifications related to this community
+  userNotificationSettings UserNotificationSetting[] // User settings specific to this community
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -603,7 +611,17 @@ model Notification {
   data    Json?            @default("{}")
 
   // Relationships
-  userId String
+  userId String // ID of the user receiving the notification
+  user   User   @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  actorId String? // ID of the user who triggered the notification
+  actor   User?   @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  relatedEntityType String? // e.g., "post", "comment", "event", "user", "community"
+  relatedEntityId   String? // ID of the entity the notification refers to
+
+  communityId String? // Optional: if the notification is specific to a community
+  community   Community? @relation(fields: [communityId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -611,13 +629,140 @@ model Notification {
 }
 
 enum NotificationType {
-  POST_COMMENT
-  POST_REACTION
-  COURSE_ENROLLMENT
-  EVENT_REMINDER
-  BADGE_EARNED
-  ACHIEVEMENT_UNLOCKED
-  COMMUNITY_INVITE
-  PAYMENT_SUCCESS
-  PAYMENT_FAILED
+  // Engagement
+  POST_LIKE
+  POST_COMMENT // Existing
+  COMMENT_REPLY
+  COMMENT_LIKE
+  MENTION_IN_POST
+  MENTION_IN_COMMENT
+
+  // Community & Admin
+  COMMUNITY_INVITE // Existing
+  ADMIN_ANNOUNCEMENT
+  NEW_MEMBER_JOINED_COMMUNITY // Example new type
+  ROLE_CHANGE // Example new type
+
+  // Events
+  EVENT_CREATED
+  EVENT_UPDATED
+  EVENT_REMINDER // Existing
+  EVENT_RSVP_CONFIRMATION // Example new type
+
+  // Courses
+  COURSE_ENROLLMENT // Existing
+  NEW_LESSON_PUBLISHED // Example new type
+  COURSE_COMPLETED // Example new type
+
+  // Gamification
+  BADGE_EARNED // Existing
+  ACHIEVEMENT_UNLOCKED // Existing
+  LEVEL_UP // Example new type
+
+  // Billing & Subscriptions
+  SUBSCRIPTION_STARTED
+  SUBSCRIPTION_ENDING_SOON
+  PAYMENT_SUCCESSFUL // Was PAYMENT_SUCCESS
+  PAYMENT_FAILED // Existing
+
+  // Chat (Optional, if direct notifications are desired beyond unread counts)
+  NEW_CHAT_MESSAGE
+
+  // Account & Security
+  PASSWORD_RESET_REQUEST // Example new type
+  EMAIL_VERIFICATION // Example new type
+  NEW_LOGIN_DETECTED // Example new type
+
+  // Generic/System
+  SYSTEM_ALERT
+  FEATURE_UPDATE
+}
+
+model UserNotificationSetting {
+  id               String  @id @default(cuid())
+  userId           String
+  communityId      String? // Null for global settings, set for per-community overrides
+  notificationType String // e.g., a value from NotificationType enum, or a category like "social_activity"
+
+  emailEnabled    Boolean @default(true)
+  inAppEnabled    Boolean @default(true)
+  pushEnabled     Boolean @default(false) // For future push notification system
+  digestFrequency String? // e.g., "daily", "weekly", "never" - for specific digestable notifications
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community Community? @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, communityId, notificationType])
+  @@map("user_notification_settings")
+}
+
+// Chat Feature Models
+model ChatChannel {
+  id              String    @id @default(cuid())
+  name            String? // For group chat names. Null for DMs.
+  isDirectMessage Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  lastMessageAt   DateTime? @default(now()) // To sort channels by recent activity
+
+  members  ChatChannelMember[]
+  messages ChatMessage[]
+
+  // For direct link to the last message
+  lastMessageId String?      @unique // Foreign key for the last message
+  lastMessage   ChatMessage? @relation("LastMessageInChannel", fields: [lastMessageId], references: [id], onDelete: SetNull)
+
+  @@map("chat_channels")
+}
+
+model ChatChannelMember {
+  id         String    @id @default(cuid())
+  channelId  String
+  userId     String
+  joinedAt   DateTime  @default(now())
+  lastReadAt DateTime? // For unread counts
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@map("chat_channel_members")
+}
+
+model ChatMessage {
+  id             String    @id @default(cuid())
+  content        String    @db.Text
+  attachmentUrl  String? // For images, files, etc.
+  attachmentType String? // e.g., "image", "file"
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime? // For soft deletes
+
+  senderId  String
+  sender    User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  channelId String
+  channel   ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  readBy MessageReadReceipt[] // For detailed read receipts
+
+  // For the one-to-one relation if this is the last message in a channel
+  isLastMessageInChannel ChatChannel? @relation("LastMessageInChannel")
+
+  @@map("chat_messages")
+}
+
+model MessageReadReceipt {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@map("message_read_receipts")
 }
