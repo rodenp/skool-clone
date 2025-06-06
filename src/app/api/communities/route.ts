@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+// import { getServerSession } from "next-auth" // Replaced by getCurrentUser
+// import { authOptions } from "@/lib/auth" // authOptions used by getCurrentUser internally
+import { getCurrentUser } from "@/lib/auth"; // Import getCurrentUser
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
@@ -19,9 +20,9 @@ const createCommunitySchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const user = await getCurrentUser(); // Use getCurrentUser
 
-    if (!session?.user?.id) {
+    if (!user || !user.id) { // Check user and user.id
       return NextResponse.json(
         { error: "You must be logged in to create a community" },
         { status: 401 }
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
         isFree: validatedData.isFree,
         price: validatedData.isFree ? 0 : validatedData.price,
         currency: validatedData.currency,
-        ownerId: session.user.id,
+        ownerId: user.id, // Use user.id from getCurrentUser
         settings: {
           category: validatedData.category,
           createdAt: new Date().toISOString(),
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     // Add the creator as the first member with OWNER role
     await prisma.communityMember.create({
       data: {
-        userId: session.user.id,
+        userId: user.id, // Use user.id
         communityId: community.id,
         role: "OWNER",
       }
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     // Award points for creating a community
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: user.id }, // Use user.id
       data: {
         points: {
           increment: 50, // 50 points for creating a community
