@@ -140,9 +140,17 @@ export default function CreateCommunityPage() {
         throw new Error(data.error || "Failed to create community")
       }
 
-      const community = await response.json()
-      toast.success("Community created successfully!")
-      router.push(`/app/communities/${community.slug}`)
+      const responseData = await response.json();
+      const newCommunity = responseData.community; // Access the nested community object
+
+      if (newCommunity && newCommunity.id) {
+        toast.success("Community created successfully!");
+        router.push(`/app/communities/${newCommunity.id}`); // Redirect using the ID
+      } else {
+        // Handle cases where community data or id might be missing in the response
+        console.error("Community data or ID missing in API response:", responseData);
+        toast.error("Failed to create community or process response correctly.");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create community")
     } finally {

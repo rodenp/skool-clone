@@ -60,15 +60,35 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Create default subscription (free trial)
-    await prisma.subscription.create({
-      data: {
-        userId: user.id,
-        status: "TRIALING",
-        plan: "FREE",
-        trialEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
+    // Fetch the Free/Trial Plan ID
+    const freePlan = await prisma.plan.findFirst({
+      where: {
+        price: 0 // Assuming a plan with price 0 is the free/trial plan
       },
-    })
+      select: { id: true }
+    });
+
+    if (!freePlan) {
+      // This is a critical setup issue. A free/trial plan must exist.
+      console.error("CRITICAL: No FREE plan found in the database for default subscription.");
+      // For this implementation, we'll log the error and registration will proceed without a subscription.
+      // Depending on business logic, you might want to return an error to the user:
+      // return NextResponse.json({ error: "System configuration error: No default plan available." }, { status: 500 });
+    } else {
+      // Create default subscription (e.g., 30-day trial on the free plan)
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 30); // 30-day trial
+
+      await prisma.subscription.create({
+        data: {
+          userId: user.id,
+          planId: freePlan.id, // Use the ID of the fetched free plan
+          status: "TRIALING",  // Or "active" if the free plan is simply active without trial
+          startDate: new Date(),
+          endDate: trialEndDate, // This sets when the trial subscription itself ends
+        }
+      });
+    }
 
     // Remove password from response
     const { hashedPassword: _, ...userWithoutPassword } = user
