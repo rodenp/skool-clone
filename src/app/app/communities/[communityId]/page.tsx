@@ -79,44 +79,78 @@ export default function CommunityPage() {
   const communityIdFromParams = params.communityId as string
 
   const fetchCommunity = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/communities/${communityIdFromParams}`)
-      if (!response.ok) {
-        throw new Error("Community not found")
-      }
-      const data = await response.json()
-      setCommunity(data)
+    if (!communityIdFromParams || communityIdFromParams === "undefined") {
+      setIsLoading(false);
+      setCommunity(null); // Explicitly set community to null
+      // console.error("FetchCommunity called with invalid communityId:", communityIdFromParams); // Optional: for debugging
+      return;
+    }
 
-      // Check if user is a member
-      if (session?.user?.id) {
-        const membership = data.members?.find((m: { userId: string }) => m.userId === session.user.id)
-        setIsMember(!!membership)
-        setUserRole(membership?.role || "")
+    setIsLoading(true); // Set isLoading true only if we proceed
+    try {
+      const response = await fetch(`/api/communities/${communityIdFromParams}`);
+      if (!response.ok) {
+        // Try to parse error from API if possible, otherwise use generic
+        let errorMsg = "Community not found";
+        try {
+           const errorData = await response.json();
+           errorMsg = errorData.error || errorMsg;
+        } catch (e) { /* ignore parsing error, use generic */ }
+        throw new Error(errorMsg);
+      }
+      const data = await response.json();
+      setCommunity(data);
+
+      if (session?.user?.id && data.members) { // Check if data.members exists
+        const membership = data.members.find((m: { userId: string }) => m.userId === session.user.id);
+        setIsMember(!!membership);
+        setUserRole(membership?.role || "");
+      } else if (session?.user?.id && !data.members) {
+        // If API doesn't include members, we might need a separate fetch or adjust expectations
+        // For now, assume members might not always be directly on community object from this specific fetch
+        // Or, ensure the API always returns it if needed for membership check here.
+        // Let's assume for now that if community is found, membership check might be based on a separate call or different logic
+        // For this fix, the key is handling the community data itself.
       }
     } catch (error) {
-      toast.error("Failed to load community")
-      console.error(error)
+      toast.error(error instanceof Error ? error.message : "Failed to load community");
+      console.error(error);
+      setCommunity(null); // Ensure community is null on error
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [communityIdFromParams, session?.user?.id])
+  }, [communityIdFromParams, session?.user?.id]);
 
   const fetchMembers = useCallback(async () => {
+    if (!communityIdFromParams || communityIdFromParams === "undefined") {
+      setMembers([]); // Clear members if ID is invalid
+      return;
+    }
     try {
       const response = await fetch(`/api/communities/${communityIdFromParams}/members`)
       if (response.ok) {
         const data = await response.json()
         setMembers(data)
+      } else {
+        // Optionally handle error for fetching members, e.g., show a toast or log
+        console.error("Failed to fetch members list from API");
       }
     } catch (error) {
       console.error("Failed to fetch members:", error)
     }
-  }, [communityIdFromParams])
+  }, [communityIdFromParams]);
 
   useEffect(() => {
-    fetchCommunity()
-    fetchMembers()
-  }, [fetchCommunity, fetchMembers])
+    if (communityIdFromParams && communityIdFromParams !== "undefined") {
+      fetchCommunity();
+      fetchMembers();
+    } else {
+      // Handle the case where communityId is not valid on initial load
+      setIsLoading(false);
+      setCommunity(null);
+      setMembers([]);
+    }
+  }, [communityIdFromParams, fetchCommunity, fetchMembers]);
 
   const handleJoinCommunity = async () => {
     if (!session?.user?.id) {
