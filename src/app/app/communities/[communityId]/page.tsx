@@ -195,11 +195,6 @@ export default function CommunityPage() {
     }
   }, [communityIdFromParams]);
 
-    } finally {
-      setIsLoadingEvents(false);
-    }
-  }, [communityIdFromParams]);
-
   const fetchCommunityCourses = useCallback(async () => {
     if (!communityIdFromParams || communityIdFromParams === "undefined") {
       setCommunityCourses([]);
