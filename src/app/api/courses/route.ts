@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { prisma, Prisma } from "@/lib/prisma" // Import Prisma namespace for types
 import { z } from "zod"
 
 const lessonSchema = z.object({
@@ -165,21 +165,24 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
+    const communityId = searchParams.get("communityId"); // Get communityId
     const communitySlug = searchParams.get("communitySlug")
     const limit = Number(searchParams.get("limit")) || 20
 
-    const where: Record<string, unknown> = {
-      isPublished: true, // Only show published courses in public listing
-    }
+    const where: Prisma.CourseWhereInput = { // Explicit type
+      isPublished: true,
+    };
 
-    if (communitySlug) {
+    if (communityId) {
+      where.communityId = communityId; // Filter by communityId if provided
+    } else if (communitySlug) {
       where.community = {
         slug: communitySlug
-      }
+      };
     }
 
     const courses = await prisma.course.findMany({
-      where,
+      where, // Use the constructed where clause
       take: limit,
       orderBy: [
         { createdAt: "desc" }

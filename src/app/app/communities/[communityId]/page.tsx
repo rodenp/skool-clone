@@ -21,7 +21,7 @@ import {
   Star,
   MessageCircle,
   BookOpen,
-  Calendar,
+  Calendar, // Already imported, but make sure it's Calendar from lucide-react if used as icon
   Trophy,
   Share2,
   MoreHorizontal
@@ -52,6 +52,26 @@ interface Community {
   updatedAt: string
 }
 
+interface CommunityEvent { // Already defined from previous step
+  id: string;
+  title: string;
+  startDate: string;
+  description?: string | null;
+  location?: string | null;
+}
+
+// Define CommunityCourse interface
+interface CommunityCourse {
+  id: string;
+  title: string;
+  description?: string | null;
+  image?: string | null;
+  // Add other relevant fields from your Course model if needed for display
+  // e.g., modules_count for a quick summary, or creator name
+  creator?: { name?: string | null };
+  _count?: { modules?: number; lessons?: number; enrollments?: number }; // Example
+}
+
 interface Member {
   id: string
   role: string
@@ -75,6 +95,14 @@ export default function CommunityPage() {
   const [isJoining, setIsJoining] = useState(false)
   const [isMember, setIsMember] = useState(false)
   const [userRole, setUserRole] = useState<string>("")
+
+  const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+
+  const [communityCourses, setCommunityCourses] = useState<CommunityCourse[]>([]);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
 
   const communityIdFromParams = params.communityId as string
 
@@ -140,17 +168,77 @@ export default function CommunityPage() {
     }
   }, [communityIdFromParams]);
 
+  }, [communityIdFromParams]);
+
+  const fetchCommunityEvents = useCallback(async () => {
+    if (!communityIdFromParams || communityIdFromParams === "undefined") {
+      setCommunityEvents([]);
+      return;
+    }
+    setIsLoadingEvents(true);
+    setEventsError(null);
+    try {
+      // Example: Fetch all events for the community, not just for a specific month initially
+      const response = await fetch(`/api/communities/${communityIdFromParams}/events`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to fetch community events");
+      }
+      const data = await response.json();
+      setCommunityEvents(data);
+    } catch (error) {
+      console.error("Failed to fetch community events:", error);
+      setEventsError(error instanceof Error ? error.message : "Could not load events");
+      setCommunityEvents([]);
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  }, [communityIdFromParams]);
+
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  }, [communityIdFromParams]);
+
+  const fetchCommunityCourses = useCallback(async () => {
+    if (!communityIdFromParams || communityIdFromParams === "undefined") {
+      setCommunityCourses([]);
+      return;
+    }
+    setIsLoadingCourses(true);
+    setCoursesError(null);
+    try {
+      const response = await fetch(`/api/courses?communityId=${communityIdFromParams}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to fetch community courses");
+      }
+      const data = await response.json();
+      setCommunityCourses(data);
+    } catch (error) {
+      console.error("Failed to fetch community courses:", error);
+      setCoursesError(error instanceof Error ? error.message : "Could not load courses");
+      setCommunityCourses([]);
+    } finally {
+      setIsLoadingCourses(false);
+    }
+  }, [communityIdFromParams]);
+
   useEffect(() => {
     if (communityIdFromParams && communityIdFromParams !== "undefined") {
       fetchCommunity();
       fetchMembers();
+      fetchCommunityEvents();
+      fetchCommunityCourses(); // New call
     } else {
       // Handle the case where communityId is not valid on initial load
       setIsLoading(false);
       setCommunity(null);
       setMembers([]);
+      setCommunityEvents([]);
+      setCommunityCourses([]); // Clear courses if ID is invalid
     }
-  }, [communityIdFromParams, fetchCommunity, fetchMembers]);
+  }, [communityIdFromParams, fetchCommunity, fetchMembers, fetchCommunityEvents, fetchCommunityCourses]);
 
   const handleJoinCommunity = async () => {
     if (!session?.user?.id) {
@@ -360,28 +448,102 @@ export default function CommunityPage() {
 
             <TabsContent value="courses" className="space-y-6">
               <Card>
+                <CardHeader>
+                  <CardTitle>Courses Offered</CardTitle>
+                   {isOwner && (
+                    <Button size="sm" asChild className="ml-auto">
+                      {/* Link to create course page or open modal */}
+                      <Link href={`/app/courses/create?communityId=${communityIdFromParams}`}>
+                         <Plus className="h-4 w-4 mr-2" /> Create Course
+                      </Link>
+                    </Button>
+                  )}
+                </CardHeader>
                 <CardContent className="p-6">
-                  <div className="text-center py-8 text-gray-500">
-                    <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No courses available yet.</p>
-                    {isOwner && (
-                      <Button className="mt-4">Create First Course</Button>
-                    )}
-                  </div>
+                  {isLoadingCourses && <p className="text-gray-500 dark:text-gray-400">Loading courses...</p>}
+                  {coursesError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{coursesError}</AlertDescription>
+                    </Alert>
+                  )}
+                  {!isLoadingCourses && !coursesError && communityCourses.length === 0 && (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No courses available in this community yet.</p>
+                    </div>
+                  )}
+                  {!isLoadingCourses && !coursesError && communityCourses.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {communityCourses.map(course => (
+                        <Link key={course.id} href={`/app/courses/${course.id}`} passHref>
+                          <Card className="hover:shadow-md transition-shadow h-full flex flex-col">
+                            {course.image && (
+                              <div className="aspect-video relative w-full">
+                                <Image src={course.image} alt={course.title} fill className="object-cover rounded-t-lg" />
+                              </div>
+                            )}
+                            <CardHeader>
+                              <CardTitle className="text-md line-clamp-2">{course.title}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex-grow">
+                              <CardDescription className="text-xs line-clamp-3">{course.description || "No description available."}</CardDescription>
+                            </CardContent>
+                            {/* <CardFooter className="text-xs text-gray-500">
+                              {course._count?.lessons || 0} lessons
+                            </CardFooter> */}
+                          </Card>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="events" className="space-y-6">
               <Card>
+                <CardHeader>
+                  <CardTitle>Upcoming Events</CardTitle>
+                  {isOwner && (
+                    <Button size="sm" asChild className="ml-auto">
+                      {/* Link to create event page or open modal */}
+                      <Link href={`/app/events/create?communityId=${communityIdFromParams}`}>
+                        <Plus className="h-4 w-4 mr-2" /> Schedule Event
+                      </Link>
+                    </Button>
+                  )}
+                </CardHeader>
                 <CardContent className="p-6">
-                  <div className="text-center py-8 text-gray-500">
-                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No events scheduled.</p>
-                    {isOwner && (
-                      <Button className="mt-4">Schedule Event</Button>
-                    )}
-                  </div>
+                  {isLoadingEvents && <p className="text-gray-500 dark:text-gray-400">Loading events...</p>}
+                  {eventsError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{eventsError}</AlertDescription>
+                    </Alert>
+                  )}
+                  {!isLoadingEvents && !eventsError && communityEvents.length === 0 && (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No events scheduled for this community yet.</p>
+                    </div>
+                  )}
+                  {!isLoadingEvents && !eventsError && communityEvents.length > 0 && (
+                    <ul className="space-y-4">
+                      {communityEvents.map(event => (
+                        <li key={event.id} className="p-4 border rounded-lg hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800">
+                          <h4 className="font-semibold text-lg text-gray-800 dark:text-gray-200">{event.title}</h4>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {new Date(event.startDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                            {' at '}
+                            {new Date(event.startDate).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                          {event.location && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Location: {event.location}</p>}
+                          {event.description && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{event.description}</p>}
+                          {/* Conceptual: Link to event details page */}
+                          {/* <Link href={`/app/events/${event.id}`} className="text-sm text-blue-500 hover:underline mt-2 inline-block">View Details</Link> */}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

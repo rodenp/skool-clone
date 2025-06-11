@@ -24,8 +24,8 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/app/dashboard", icon: Home },
   { name: "Communities", href: "/app/communities", icon: Users },
-  { name: "Courses", href: "/app/courses", icon: BookOpen },
-  { name: "Calendar", href: "/app/calendar", icon: Calendar },
+  // { name: "Courses", href: "/app/courses", icon: BookOpen }, // Removed this line
+  // { name: "Calendar", href: "/app/calendar", icon: Calendar }, // Removed this line
   // { name: "Leaderboard", href: "/app/leaderboard", icon: Trophy }, // Removed this line
 ]
 
