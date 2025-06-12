@@ -168,8 +168,6 @@ export default function CommunityPage() {
     }
   }, [communityIdFromParams]);
 
-  }, [communityIdFromParams]);
-
   const fetchCommunityEvents = useCallback(async () => {
     if (!communityIdFromParams || communityIdFromParams === "undefined") {
       setCommunityEvents([]);
